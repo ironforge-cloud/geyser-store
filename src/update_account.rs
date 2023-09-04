@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{pubkey_string_from_bytes, tx_signature_string_from_bytes};
+use crate::{
+    base64_encode, pubkey_string_from_bytes, tx_signature_string_from_bytes,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UpdateAccount {
@@ -37,7 +39,7 @@ impl std::fmt::Debug for UpdateAccountStorable {
             .field("owner", &self.owner)
             .field("executable", &self.executable)
             .field("rent_epoch", &self.rent_epoch)
-            .field("data_len", &self.data.len())
+            .field("data", &base64_encode(&self.data))
             .field("write_version", &self.write_version)
             .field("txn_signature", &self.txn_signature)
             .finish()

@@ -22,6 +22,9 @@ impl DB {
         Ok(db)
     }
 
+    // -----------------
+    // Init Tables
+    // -----------------
     pub fn init_tables(&self) -> GeyserStoreResult<()> {
         // TODO(thlorenz): dropping table should be configurable via CLI arg
         Ok(self.conn.execute_batch(
@@ -30,15 +33,16 @@ BEGIN;
 DROP TABLE IF EXISTS accounts;
 CREATE TABLE IF NOT EXISTS accounts (
     id              TEXT PRIMARY KEY,    
-    pubkey          TEXT,
-    lamports        INTEGER,
-    owner           TEXT,
-    executable      BOOLEAN,
-    rent_epoch      INTEGER,
+    size            INTEGER,
     data            BLOB,
     slot            INTEGER,
     write_version   INTEGER,
-    updated_at      INTEGER
+    updated_at      INTEGER,
+    pubkey          TEXT,
+    owner           TEXT,
+    lamports        INTEGER,
+    executable      BOOLEAN,
+    rent_epoch      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_pubkey ON accounts (pubkey);
 CREATE INDEX IF NOT EXISTS idx_id ON accounts (id);
@@ -58,34 +62,37 @@ COMMIT;
         let id = update.id();
         let now = SystemTime::now();
         let updated_at: u32 = time_stamp_to_secs(now);
+        let size = update.data.len();
         let data = base64_encode(&update.data);
         Ok(self.conn.execute(
             "
 INSERT OR IGNORE INTO accounts (
     id,    
-    pubkey,
-    lamports,
-    owner,
-    executable,
-    rent_epoch,
+    size,
     data,
     slot,
     write_version,
-    updated_at
+    updated_at,
+    pubkey,
+    owner,
+    lamports,
+    executable,
+    rent_epoch
 )
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10);
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
                 ",
             params![
                 id,
-                update.pubkey,
-                update.lamports,
-                update.owner,
-                update.executable,
-                update.rent_epoch,
+                size,
                 data,
                 update.slot,
                 update.write_version,
                 updated_at,
+                update.pubkey,
+                update.owner,
+                update.lamports,
+                update.executable,
+                update.rent_epoch.to_string(),
             ],
         )?)
     }
