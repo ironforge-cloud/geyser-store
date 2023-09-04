@@ -32,6 +32,11 @@ pub struct UpdateAccountStorable {
 
 impl std::fmt::Debug for UpdateAccountStorable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let data = if std::env::var("DUMP_UPDATES_DATA").is_ok() {
+            base64_encode(&self.data)
+        } else {
+            format!("<{} bytes>", self.data.len())
+        };
         f.debug_struct("UpdateAccountStorable")
             .field("slot", &self.slot)
             .field("pubkey", &self.pubkey)
@@ -39,7 +44,7 @@ impl std::fmt::Debug for UpdateAccountStorable {
             .field("owner", &self.owner)
             .field("executable", &self.executable)
             .field("rent_epoch", &self.rent_epoch)
-            .field("data", &base64_encode(&self.data))
+            .field("data", &data)
             .field("write_version", &self.write_version)
             .field("txn_signature", &self.txn_signature)
             .finish()
