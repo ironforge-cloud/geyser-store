@@ -22,7 +22,9 @@ async fn account_update(
     item: Json<UpdateAccount>,
 ) -> (StatusCode, String) {
     let storable = UpdateAccountStorable::from(item.0);
-    // eprintln!("Storing {:#?}", storable);
+    if std::env::var("DUMP_UPDATES").is_ok() {
+        eprintln!("{:#?}", storable);
+    }
     let db = state.db.lock().expect("mutex was poisoned");
     match db.insert_account_update(storable) {
         Ok(_) => (StatusCode::OK, "OK".to_string()),
