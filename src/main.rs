@@ -1,4 +1,6 @@
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use events::SerializableTransactionEvent;
+use notify_transaction::TransactionStorable;
 
 use crate::update_account::UpdateAccountStorable;
 use std::{
@@ -9,6 +11,8 @@ use update_account::UpdateAccount;
 
 mod db;
 pub mod errors;
+mod events;
+mod notify_transaction;
 mod update_account;
 mod utils;
 pub use utils::*;
@@ -35,6 +39,17 @@ async fn account_update(
     }
 }
 
+async fn transaction_update(
+    State(_state): State<AppState>,
+    item: Json<SerializableTransactionEvent>,
+) -> (StatusCode, String) {
+    let storable = TransactionStorable::from(item.0);
+    if std::env::var("DUMP_UPDATES").is_ok() {
+        eprintln!("{:#?}", storable);
+    }
+    (StatusCode::OK, "OK".to_string())
+}
+
 #[tokio::main]
 async fn main() {
     let db = db::DB::new(db::DB_NAME).unwrap();
@@ -43,6 +58,7 @@ async fn main() {
     };
     let app = Router::new()
         .route("/update-account", post(account_update))
+        .route("/update-transaction", post(transaction_update))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 9999));

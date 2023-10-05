@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 /// NOTE: copied from Geyser code but maybe should be pulled out into a common package
 use generated::{
     sanitized_message::MessagePayload, CompiledInstruction, InnerInstruction,
@@ -8,7 +10,15 @@ use generated::{
     UpdateAccountEvent, V0LoadedMessage, V0Message,
 };
 use serde::{Deserialize, Serialize};
+use solana_sdk::{hash, pubkey::Pubkey, signature::Signature};
 mod generated;
+
+fn vec_to_hash_string(vec: Vec<u8>) -> String {
+    <[u8; 32]>::try_from(vec)
+        .map(hash::Hash::from)
+        .map(|x| x.to_string())
+        .unwrap_or_else(|_| "<invalid hash>".to_string())
+}
 
 // -----------------
 // UpdateAccountEvent
@@ -100,11 +110,21 @@ impl From<MessageHeader> for SerializableMessageHeader {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SerializableCompiledInstruction {
     pub program_id_index: u32,
     pub accounts: Vec<u32>,
     pub data: Vec<u8>,
+}
+
+impl Debug for SerializableCompiledInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SerializableCompiledInstruction")
+            .field("program_id_index", &self.program_id_index)
+            .field("accounts", &self.accounts)
+            .field("data", &format!("<{} bytes>", self.data.len()))
+            .finish()
+    }
 }
 
 impl From<CompiledInstruction> for SerializableCompiledInstruction {
@@ -197,12 +217,34 @@ impl From<V0LoadedMessage> for SerializableV0LoadedMessage {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SerializableLegacyMessage {
     pub header: Option<SerializableMessageHeader>,
     pub account_keys: Vec<Vec<u8>>,
     pub recent_block_hash: Vec<u8>,
     pub instructions: Vec<SerializableCompiledInstruction>,
+}
+
+impl Debug for SerializableLegacyMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let account_keys = self
+            .account_keys
+            .iter()
+            .map(|x| {
+                Pubkey::try_from(x.as_slice())
+                    .map(|x| x.to_string())
+                    .unwrap_or_else(|_| "<invalid account key>".to_string())
+            })
+            .collect::<Vec<_>>();
+        let recent_block_hash =
+            vec_to_hash_string(self.recent_block_hash.clone());
+        f.debug_struct("SerializableLegacyMessage")
+            .field("header", &self.header)
+            .field("account_keys", &account_keys)
+            .field("recent_block_hash", &recent_block_hash)
+            .field("instructions", &self.instructions)
+            .finish()
+    }
 }
 
 impl From<LegacyMessage> for SerializableLegacyMessage {
@@ -269,12 +311,37 @@ impl From<SanitizedMessage> for SerializableSanitizedMessage {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SerializableSanitizedTransaction {
     pub message: Option<SerializableSanitizedMessage>,
     pub message_hash: Vec<u8>,
     pub is_simple_vote_transaction: bool,
     pub signatures: Vec<Vec<u8>>,
+}
+
+impl Debug for SerializableSanitizedTransaction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message_hash = vec_to_hash_string(self.message_hash.clone());
+        let signatures = self
+            .signatures
+            .iter()
+            .map(|x| {
+                Signature::try_from(x.as_slice())
+                    .map(|x| x.to_string())
+                    .unwrap_or_else(|_| "<invalid signature>".to_string())
+            })
+            .collect::<Vec<_>>();
+
+        f.debug_struct("SerializableSanitizedTransaction")
+            .field("message", &self.message)
+            .field("message_hash", &message_hash.to_string())
+            .field(
+                "is_simple_vote_transaction",
+                &self.is_simple_vote_transaction,
+            )
+            .field("signatures", &signatures)
+            .finish()
+    }
 }
 
 impl From<SanitizedTransaction> for SerializableSanitizedTransaction {
