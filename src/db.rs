@@ -1,5 +1,6 @@
 use crate::{
     base64_encode, errors::GeyserStoreResult,
+    notify_transaction::TransactionStorable,
     update_account::UpdateAccountStorable,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -32,7 +33,7 @@ impl DB {
 BEGIN;
 DROP TABLE IF EXISTS accounts;
 CREATE TABLE IF NOT EXISTS accounts (
-    id              TEXT PRIMARY KEY,    
+    id              TEXT PRIMARY KEY,
     size            INTEGER,
     data            BLOB,
     slot            INTEGER,
@@ -46,6 +47,18 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 CREATE INDEX IF NOT EXISTS idx_pubkey ON accounts (pubkey);
 CREATE INDEX IF NOT EXISTS idx_id ON accounts (id);
+
+DROP TABLE IF EXISTS transactions;
+CREATE TABLE IF NOT EXISTS transactions (
+    signature                TEXT PRIMARY KEY,
+    is_vote                  BOOLEAN,
+    slot                     INTEGER,
+    idx                      INTEGER,
+    tx                       TEXT,
+    transaction_status_meta  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_signature ON transactions (signature);
+
 COMMIT;
 ",
         )?)
@@ -67,7 +80,7 @@ COMMIT;
         Ok(self.conn.execute(
             "
 INSERT OR IGNORE INTO accounts (
-    id,    
+    id,
     size,
     data,
     slot,
@@ -93,6 +106,44 @@ VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
                 update.lamports,
                 update.executable,
                 update.rent_epoch.to_string(),
+            ],
+        )?)
+    }
+
+    // -----------------
+    // Insert Transaction
+    // -----------------
+    pub fn insert_transaction(
+        &self,
+        tx: TransactionStorable,
+    ) -> GeyserStoreResult<usize> {
+        let signature = tx.signature;
+        let is_vote = tx.is_vote;
+        let slot = tx.slot;
+        let index = tx.index;
+        let transaction_data = format!("{:?}", tx.transaction);
+        let transaction_status_meta =
+            format!("{:?}", tx.transaction_status_meta);
+
+        Ok(self.conn.execute(
+            "
+  INSERT OR IGNORE INTO transactions (
+      signature,
+      is_vote,
+      slot,
+      idx,
+      tx,
+      transaction_status_meta
+  )
+  VALUES (?1, ?2, ?3, ?4, ?5, ?6);
+              ",
+            params![
+                signature,
+                is_vote,
+                slot,
+                index,
+                transaction_data,
+                transaction_status_meta,
             ],
         )?)
     }

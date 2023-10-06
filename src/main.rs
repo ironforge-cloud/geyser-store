@@ -40,14 +40,21 @@ async fn account_update(
 }
 
 async fn transaction_update(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     item: Json<SerializableTransactionEvent>,
 ) -> (StatusCode, String) {
     let storable = TransactionStorable::from(item.0);
     if std::env::var("DUMP_UPDATES").is_ok() {
         eprintln!("{:#?}", storable);
     }
-    (StatusCode::OK, "OK".to_string())
+    let db = state.db.lock().expect("mutex was poisoned");
+    match db.insert_transaction(storable) {
+        Ok(_) => (StatusCode::OK, "OK".to_string()),
+        Err(err) => {
+            eprintln!("Error: {:#?}", err);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Error".to_string())
+        }
+    }
 }
 
 #[tokio::main]
